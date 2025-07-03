@@ -11,7 +11,7 @@ from discord.ext import commands, tasks
 from Monster import Monster
 from datetime import datetime, timedelta
 from trello.trello_lookup import TrelloLookup
-import server
+from server import app
 
 #.env 파일에서 환경변수 로드
 load_dotenv()
