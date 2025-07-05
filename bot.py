@@ -11,7 +11,7 @@ from discord.ext import commands, tasks
 from Monster import Monster
 from datetime import datetime, timedelta
 from trello.trello_lookup import TrelloLookup
-from server import app
+from server import app, keep_alive
 
 #.env 파일에서 환경변수 로드
 load_dotenv()
@@ -166,14 +166,6 @@ async def help_command(ctx):
     
     """
     await ctx.send(help_text)
-
-# Flask 서버 실행
-def run():
-    app.run(host="0.0.0.0", port=8080)
-
-def keep_alive():
-    t = threading.Thread(target=run)
-    t.start()
 
 async def main():
     # 디스코드 cog 로드
