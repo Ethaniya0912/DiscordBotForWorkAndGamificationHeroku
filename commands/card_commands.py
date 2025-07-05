@@ -6,7 +6,7 @@ import requests
 from trello.trello_auth import get_trello_id_for_user
 from trello.trello_lookup import TrelloLookup
 from commands.sprint_commands import generate_sprint_progress
-from commands.card_move_view import ListSelectViewForCardCreate
+from commands.card_move_view import ListSelectViewForCardCreate, ListSelectViewForAssign, ListSelectViewForComplete
 from data.user_mapping import get_trello_info
 from dotenv import load_dotenv # .env 환경변수 불러오기
 
@@ -69,6 +69,17 @@ def setup(bot):
             else:
                 await ctx.send(f"⚠ 카드 할당 실패: {res.text}")
 
+    @bot.command(name="카드담당메뉴")
+    async def assign_cards_menu(ctx, board_name):
+        board_id = TrelloLookup.get_board_id_by_name(board_name)
+        if not board_id:
+            return await ctx.send("❌ 보드를 찾을 수 없습니다.")
+
+        await ctx.send(
+            f"📋 `{board_name}`의 리스트를 선택하세요.",
+            view=ListSelectViewForAssign(board_id)
+        )
+
     @bot.command(name="카드담당해제")
     async def unassign_card(ctx, *, card_name):
         info = get_trello_info(ctx.author.id)
@@ -119,6 +130,17 @@ def setup(bot):
             await ctx.send(f"✅ 카드 '{card_name}'가 완료로 표시되었고, DONE리스트로 이동했습니다.\n\n{progress_msg}")
         else:
             await ctx.send(f"⚠️카드 완료는 되었지만 이동 실패 : {move_res.text}")
+
+    @bot.command(name="카드완료메뉴")
+    async def complete_cards_menu(ctx, board_name):
+        board_id = TrelloLookup.get_board_id_by_name(board_name)
+        if not board_id:
+            return await ctx.send("❌ 보드를 찾을 수 없습니다.")
+
+        await ctx.send(
+            f"📋 `{board_name}`의 리스트를 선택하세요.",
+            view=ListSelectViewForComplete(board_id)
+        )
 
     # 리스트 조회 : !리스트조회 보드이름
     @bot.command(name="리스트조회")

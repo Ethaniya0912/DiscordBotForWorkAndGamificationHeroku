@@ -180,12 +180,26 @@ class TrelloLookup:
         res = requests.put(url, params=params)
         return res.json()
 
-    #-------------------카드 전체조회함수--------------
+    #-------------------보드, 카드 전체조회함수--------------
     @staticmethod
     def get_all_cards():
         url = f"{BASE_URL}/members/me/cards"
         params = {"key": KEY, "token": TOKEN}
         res = requests.get(url, params=params)
+        return res.json()
+
+    @staticmethod
+    def get_all_boards():
+        url = f"{BASE_URL}/members/me/boards"
+        params = {
+            "key": KEY,
+            "token": TOKEN,
+            "fields": "name,id",  # 필요한 필드만 요청
+            "filter": "open"  # 닫힌 보드는 제외
+        }
+        res = requests.get(url, params=params)
+        if res.status_code != 200:
+            return []
         return res.json()
 
     #------------------카드 담당자 설정, 해제, 조회, 완료------------

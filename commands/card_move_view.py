@@ -3,6 +3,8 @@
 import discord
 from discord.ext import commands
 from trello.trello_lookup import TrelloLookup
+from data.user_mapping import get_trello_info
+from commands.sprint_commands import generate_sprint_progress
 import requests
 import os
 from dotenv import load_dotenv
@@ -56,7 +58,7 @@ class ListSelect(discord.ui.Select):
         )
 
 # ✅ 리스트 선택용 View
-class ListSelectView(discord.ui.View):
+class ListSelectViewForMove(discord.ui.View):
     def __init__(self, board_id):
         super().__init__(timeout=60)
         self.add_item(ListSelect(board_id))
@@ -176,7 +178,7 @@ class CardMoveView(commands.Cog):
 
         await ctx.send(
             f"📂 `{board_name}`의 리스트를 선택하세요.",
-            view=ListSelectView(board_id)
+            view=ListSelectViewForMove(board_id)
         )
 
 #==============카드생성================
@@ -340,6 +342,221 @@ class TargetListViewForCardCreate(discord.ui.View):
         super().__init__(timeout=60)
         self.add_item(TargetListSelectForCardCreate(board_id, names, prefix))
 
+#============카드담당드롭다운===================
+# ✅ 리스트 선택 Select
+class ListSelectForAssign(discord.ui.Select):
+    def __init__(self, board_id):
+        self.board_id = board_id
+
+        lists = TrelloLookup.get_lists(board_id)
+        options = [
+            discord.SelectOption(
+                label=l["name"],
+                description=f"리스트 ID: {l['id']}"
+            )
+            for l in lists
+        ]
+
+        super().__init__(
+            placeholder="카드를 선택할 리스트를 고르세요.",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        selected_list = next(
+            l for l in TrelloLookup.get_lists(self.board_id) if l["name"] == self.values[0]
+        )
+
+        cards = TrelloLookup.get_card(selected_list["id"])
+        if not cards:
+            return await interaction.response.send_message(
+                "❌ 선택한 리스트에 카드가 없습니다.",
+                ephemeral=True
+            )
+
+        await interaction.response.send_message(
+            f"📝 `{selected_list['name']}`의 카드를 선택하세요.",
+            view=CardAssignView(cards),
+            ephemeral=True
+        )
+
+
+# ✅ 리스트 선택 View
+class ListSelectViewForAssign(discord.ui.View):
+    def __init__(self, board_id):
+        super().__init__(timeout=60)
+        self.add_item(ListSelectForAssign(board_id))
+
+
+# ✅ 카드 선택 후 담당자 지정
+class CardAssignView(discord.ui.View):
+    def __init__(self, cards):
+        super().__init__(timeout=120)
+        self.add_item(CardAssignSelect(cards))
+
+
+class CardAssignSelect(discord.ui.Select):
+    def __init__(self, cards):
+        self.cards = cards
+
+        options = [
+            discord.SelectOption(
+                label=c["name"],
+                description=f"카드 ID: {c['id']}"
+            )
+            for c in cards
+        ]
+
+        super().__init__(
+            placeholder="담당자로 할당할 카드를 선택하세요.",
+            min_values=1,
+            max_values=len(cards),
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        info = get_trello_info(interaction.user.id)
+        if not info:
+            return await interaction.response.send_message(
+                "❌ Trello 계정이 연동되어 있지 않습니다.",
+                ephemeral=True
+            )
+
+        selected_cards = [c for c in self.cards if c["name"] in self.values]
+
+        success = 0
+        failed = 0
+
+        for card in selected_cards:
+            res = TrelloLookup.assign_member_to_card(card["id"], info["trello_member_id"])
+            if res.status_code == 200:
+                success += 1
+            else:
+                failed += 1
+
+        await interaction.response.send_message(
+            f"✅ {success}개의 카드에 담당자로 할당 완료.\n"
+            + (f"❌ 실패: {failed}개" if failed else ""),
+            ephemeral=True
+        )
+
+#========카드담당완료==========
+# ✅ 리스트 선택
+class ListSelectForComplete(discord.ui.Select):
+    def __init__(self, board_id):
+        self.board_id = board_id
+
+        lists = TrelloLookup.get_lists(board_id)
+        options = [
+            discord.SelectOption(
+                label=l["name"],
+                description=f"리스트 ID: {l['id']}"
+            )
+            for l in lists
+        ]
+
+        super().__init__(
+            placeholder="완료할 카드가 있는 리스트를 선택하세요.",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        selected_list = next(
+            l for l in TrelloLookup.get_lists(self.board_id) if l["name"] == self.values[0]
+        )
+
+        cards = TrelloLookup.get_card(selected_list["id"])
+        if not cards:
+            return await interaction.response.send_message(
+                "❌ 선택한 리스트에 카드가 없습니다.",
+                ephemeral=True
+            )
+
+        await interaction.response.send_message(
+            f"📋 `{selected_list['name']}`의 카드를 선택하세요.",
+            view=CardSelectForComplete(cards, self.board_id),
+            ephemeral=True
+        )
+
+
+class ListSelectViewForComplete(discord.ui.View):
+    def __init__(self, board_id):
+        super().__init__(timeout=60)
+        self.add_item(ListSelectForComplete(board_id))
+
+class CardSelectForComplete(discord.ui.View):
+    def __init__(self, cards, board_id):
+        super().__init__(timeout=120)
+        self.add_item(CardDropdownForComplete(cards, board_id))
+
+
+class CardDropdownForComplete(discord.ui.Select):
+    def __init__(self, cards, board_id):
+        self.cards = cards
+        self.board_id = board_id
+
+        options = [
+            discord.SelectOption(
+                label=c["name"],
+                description=f"카드 ID: {c['id']}"
+            )
+            for c in cards
+        ]
+
+        super().__init__(
+            placeholder="완료 처리할 카드를 선택하세요.",
+            min_values=1,
+            max_values=len(cards),
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        selected_cards = [c for c in self.cards if c["name"] in self.values]
+        success = 0
+        fail = 0
+        board_id = self.board_id
+
+        for card in selected_cards:
+            # 카드 정보 조회
+            card_info = TrelloLookup.get_card_info_by_id(card["id"])
+            if not card_info:
+                fail += 1
+                continue
+
+            done_list_id = TrelloLookup.get_list_id_endswith(board_id, "done")
+            if not done_list_id:
+                return await interaction.response.send_message(
+                    "❌ 'DONE' 리스트를 찾을 수 없습니다.\n리스트 이름이 '...DONE'으로 끝나야 합니다.",
+                    ephemeral=True
+                )
+
+            # 완료 마크
+            mark_res = TrelloLookup.mark_card_complete(card["id"])
+            if mark_res.status_code != 200:
+                fail += 1
+                continue
+
+            # DONE 리스트로 이동
+            move_res = TrelloLookup.move_card_to_list(card["id"], done_list_id)
+            if move_res.status_code == 200:
+                success += 1
+            else:
+                fail += 1
+
+        progress_msg = await generate_sprint_progress(board_id)
+
+        await interaction.followup.send(
+            f"✅ 완료 처리된 카드: {success}개\n"
+            + (f"❌ 실패: {fail}개\n" if fail else "")
+            + f"\n{progress_msg}",
+            ephemeral=True
+        )
 
 
 # Cog 등록

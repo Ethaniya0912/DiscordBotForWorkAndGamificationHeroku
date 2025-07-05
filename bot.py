@@ -11,7 +11,7 @@ from discord.ext import commands, tasks
 from Monster import Monster
 from datetime import datetime, timedelta
 from trello.trello_lookup import TrelloLookup
-from server import app, keep_alive
+from server import app
 
 #.env 파일에서 환경변수 로드
 load_dotenv()
@@ -130,6 +130,10 @@ async def help_command(ctx):
         ➤ 원하는 보드에 존재하는 카드를 다른 리스트로 이동시킬 수 있음.
         ➤ 드롭다운 메뉴로 선택이 가능.
         ➤ 위 방식으로는 카드완료가 되지 않음으로 주의.
+    
+    8. '카드메뉴'
+        ➤ 원하는 드롭다운 메뉴를 선택할 수 있는 view 
+        ➤ 카드생성, 카드담당, 카드 완료, 카드 이동
         
     =======리스트========
     
@@ -163,12 +167,20 @@ async def help_command(ctx):
     """
     await ctx.send(help_text)
 
+# Flask 서버 실행
+def run():
+    app.run(host="0.0.0.0", port=8080)
+
+def keep_alive():
+    t = threading.Thread(target=run)
+    t.start()
 
 async def main():
     # 디스코드 cog 로드
     await bot.load_extension("Alarm.discord_alarm")
     await bot.load_extension("Alarm.trello_alarm")
     await bot.load_extension("commands.card_move_view")
+    await bot.load_extension("commands.card_menu")
     await bot.start(DISCORD_BOT_TOKEN)
 
 if __name__ == "__main__":
