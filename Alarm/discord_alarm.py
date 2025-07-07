@@ -44,15 +44,17 @@ class Discord_alarm(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print(f'Bot 은 {self.bot.user}로서 준비 완료됬습니다.')
+        print(f'Bot ready as {self.bot.user}.')
         await self.bot.wait_until_ready()
         await init_db_pool() # 풀 초기화
         self.pool = get_db_pool()
+        print("DB pool reset complete")
         self.check_and_send_user_alerts.start()
 
     # 알림 추가 명령어
     @commands.command(aliases=["알람추가"])
     async def addalert(self, ctx, time: str):
+        print("starting alarm adding.")
         user_id = ctx.author.id
 
         # HH:MM 형식 확인

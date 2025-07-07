@@ -12,7 +12,9 @@ _pool = None
 async def init_db_pool():
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(dsn=DATABASE_URL)
+        print("Attempting DB pool generation.")
+        _pool = await asyncpg.create_pool(dsn=DATABASE_URL, timeout=10)
+        print("DB pool generation complete.")
     return _pool
 
 def get_db_pool():
