@@ -61,7 +61,7 @@ class Discord_alarm(commands.Cog):
             # HH:MM 형식 확인
             try:
                 # 문자열을 datetime 객체로 먼저 파싱
-                parsed_time = datetime.strptime(time, "%H:%M")
+                parsed_time = datetime.strptime(time, "%H:%M").time()
 
                 # 형식을 맞춘 문자열로 다시 변환
                 formatted_time = parsed_time.strftime("%H:%M:%S")
@@ -69,7 +69,7 @@ class Discord_alarm(commands.Cog):
                 await ctx.send("시간 형식이 잘못 되었습니다. (예:15:30)")
                 return
 
-            print("💡 시간 파싱 완료:", formatted_time)
+            print("💡 시간 파싱 완료:", parsed_time)
 
         ##SQL 이전으로 인한 JSON관련 코드 diff
         # if user_id not in user_alerts:
@@ -88,7 +88,7 @@ class Discord_alarm(commands.Cog):
                 exists = await conn.fetchval(
                     "SELECT 1 FROM user_alerts WHERE user_id=$1 AND alert_time=$2",
                     user_id,
-                    formatted_time
+                    parsed_time
                 )
                 print("DB SELECT complete:", exists)
 
