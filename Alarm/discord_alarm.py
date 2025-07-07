@@ -102,7 +102,7 @@ class Discord_alarm(commands.Cog):
     # 알람 확인 명령어
     @commands.command(aliases=["내알람"])
     async def myalerts(self, ctx):
-
+        await ctx.send("디버그:명령어 진입")
         ## psql 이전으로 인한 json 관련 코드 제거
         # user_id = str(ctx.author.id)
         #
