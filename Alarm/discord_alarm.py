@@ -54,19 +54,22 @@ class Discord_alarm(commands.Cog):
     # 알림 추가 명령어
     @commands.command(aliases=["알람추가"])
     async def addalert(self, ctx, time: str):
-        print("starting alarm adding.")
-        user_id = ctx.author.id
-
-        # HH:MM 형식 확인
         try:
-            # 문자열을 datetime 객체로 먼저 파싱
-            parsed_time = datetime.strptime(time, "%H:%M")
+            print("starting alarm adding.")
+            user_id = ctx.author.id
 
-            # 형식을 맞춘 문자열로 다시 변환
-            formatted_time = parsed_time.strftime("%H:%M:%S")
-        except ValueError:
-            await ctx.send("시간 형식이 잘못 되었습니다. (예:15:30)")
-            return
+            # HH:MM 형식 확인
+            try:
+                # 문자열을 datetime 객체로 먼저 파싱
+                parsed_time = datetime.strptime(time, "%H:%M")
+
+                # 형식을 맞춘 문자열로 다시 변환
+                formatted_time = parsed_time.strftime("%H:%M:%S")
+            except ValueError:
+                await ctx.send("시간 형식이 잘못 되었습니다. (예:15:30)")
+                return
+
+            print("💡 시간 파싱 완료:", formatted_time)
 
         ##SQL 이전으로 인한 JSON관련 코드 diff
         # if user_id not in user_alerts:
@@ -81,26 +84,32 @@ class Discord_alarm(commands.Cog):
         #     await ctx.send(f"{ctx.author.mention} 알림 시간 '{formatted_time}'이 등록되었습니다.")
 
         # PSQL
-        async with self.pool.acquire() as conn: # pool 에서 가져오며, conn으로 저장.
-            exists = await conn.fetchval(
-                "SELECT 1 FROM user_alerts WHERE user_id=$1 AND alert_time=$2",
-                user_id,
-                formatted_time
-            )
+            async with self.pool.acquire() as conn: # pool 에서 가져오며, conn으로 저장.
+                exists = await conn.fetchval(
+                    "SELECT 1 FROM user_alerts WHERE user_id=$1 AND alert_time=$2",
+                    user_id,
+                    formatted_time
+                )
+                print("DB SELECT complete:", exists)
+
         # user id 는 첫번째 파라미터, formatted_time 은 두번째 파라미터.
         # asyncpg 가 안전하게 파라미터에 다음 값들을 집어넣는 방식이고 sql 인젝션 공격을 방지.
-            if exists:
-                await ctx.send(f"{ctx.author.mention} 이미 등록된 시간입니다.")
-                return
-            await conn.execute(
-                "INSERT INTO user_alerts (user_id, alert_time) VALUES ($1, $2)",
-                user_id,
-                formatted_time
-            )
+                if exists:
+                    await ctx.send(f"{ctx.author.mention} 이미 등록된 시간입니다.")
+                    return
+                await conn.execute(
+                    "INSERT INTO user_alerts (user_id, alert_time) VALUES ($1, $2)",
+                    user_id,
+                    formatted_time
+                )
+                print("DB INSERT 완료")
 
-        # [:5]는 5문자열만 가져온다는 것. 뒤에 시:분 이외 초는 필요없음으로.
-        await ctx.send(f"{ctx.author.mention} 알림 시간 '{formatted_time[:5]}' 이 등록되었습니다.")
-
+            # [:5]는 5문자열만 가져온다는 것. 뒤에 시:분 이외 초는 필요없음으로.
+            await ctx.send(f"{ctx.author.mention} 알림 시간 '{formatted_time[:5]}' 이 등록되었습니다.")
+        except Exception as e:
+            print("X addalert exception occur:", e)
+            await ctx.send(f"error occured: {e}")
+            
     # 알람 확인 명령어
     @commands.command(aliases=["내알람"])
     async def myalerts(self, ctx):
