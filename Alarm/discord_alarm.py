@@ -120,6 +120,7 @@ class Discord_alarm(commands.Cog):
                 "SELECT alert_time FROM user_alerts WHERE user_id=$1 ORDER BY alert_time",
                 user_id
             )
+        print("rows:", rows) # 로그생성
         if not rows:
             await ctx.send(f"{ctx.author.mention}, 등록된 알림 시간이 없습니다.")
             return
