@@ -44,11 +44,11 @@ class Discord_alarm(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print(f'Bot ready as {self.bot.user}.')
+        print(f'Bot ready as {self.bot.user}.', flush=True)
         await self.bot.wait_until_ready()
         await init_db_pool() # 풀 초기화
         self.pool = get_db_pool()
-        print("DB pool reset complete")
+        print("DB pool reset complete", flush=True)
         self.check_and_send_user_alerts.start()
 
     # 알림 추가 명령어
@@ -109,7 +109,7 @@ class Discord_alarm(commands.Cog):
         except Exception as e:
             print("X addalert exception occur:", e)
             await ctx.send(f"error occured: {e}")
-            
+
     # 알람 확인 명령어
     @commands.command(aliases=["내알람"])
     async def myalerts(self, ctx):
