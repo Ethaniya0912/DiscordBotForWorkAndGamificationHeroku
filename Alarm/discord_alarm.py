@@ -3,7 +3,7 @@
 import os
 import asyncio
 from discord.ext import tasks, commands
-from datetime import datetime
+from datetime import datetime,timedelta
 # import json
 import asyncpg
 from dotenv import load_dotenv # .env 환경변수 불러오기
@@ -176,8 +176,12 @@ class Discord_alarm(commands.Cog):
     # 알림 루프 : 매 분마다 검사
     @tasks.loop(minutes=1)
     async def check_and_send_user_alerts(self):
+
+        # KST 현재시간 구하기
         # now = datetime.now().strftime("%H:%M")
-        now = datetime.now().strftime("%H:%M:%S")
+        now_utc = datetime.utcnow()
+        now_kst = now_utc+timedelta(hours=9)
+        now = now_kst.strftime("%H:%M:%S")
         channel = self.bot.get_channel(CHANNEL_ID)
 
         if not channel:
