@@ -64,7 +64,7 @@ class Discord_alarm(commands.Cog):
                 parsed_time = datetime.strptime(time, "%H:%M").time()
 
                 # 형식을 맞춘 문자열로 다시 변환
-                # formatted_time = parsed_time.strftime("%H:%M:%S")
+                formatted_time = parsed_time.strftime("%H:%M:%S")
             except ValueError:
                 await ctx.send("시간 형식이 잘못 되었습니다. (예:15:30)")
                 return
@@ -105,7 +105,7 @@ class Discord_alarm(commands.Cog):
                 print("DB INSERT 완료")
 
             # [:5]는 5문자열만 가져온다는 것. 뒤에 시:분 이외 초는 필요없음으로.
-            await ctx.send(f"{ctx.author.mention} 알림 시간 '{parsed_time[:5]}' 이 등록되었습니다.")
+            await ctx.send(f"{ctx.author.mention} 알림 시간 '{formatted_time[:5]}' 이 등록되었습니다.")
         except Exception as e:
             print("X addalert exception occur:", e)
             await ctx.send(f"error occured: {e}")
