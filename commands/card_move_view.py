@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 from trello.trello_lookup import TrelloLookup
 from data.user_mapping import get_trello_info
-from commands.sprint_commands import generate_sprint_progress
+from commands.sprint_commands import Sprint
 import requests
 import os
 from dotenv import load_dotenv
@@ -478,7 +478,7 @@ class ListSelectForComplete(discord.ui.Select):
 
         await interaction.response.send_message(
             f"📋 `{selected_list['name']}`의 카드를 선택하세요.",
-            view=CardSelectForComplete(cards, self.board_id),
+            view=CardSelectForComplete(interaction.client, cards, self.board_id),
             ephemeral=True
         )
 
@@ -489,13 +489,15 @@ class ListSelectViewForComplete(discord.ui.View):
         self.add_item(ListSelectForComplete(board_id))
 
 class CardSelectForComplete(discord.ui.View):
-    def __init__(self, cards, board_id):
+    def __init__(self, bot, cards, board_id):
         super().__init__(timeout=120)
-        self.add_item(CardDropdownForComplete(cards, board_id))
+        self.bot = bot
+        self.add_item(CardDropdownForComplete(bot, cards, board_id))
 
 
 class CardDropdownForComplete(discord.ui.Select):
-    def __init__(self, cards, board_id):
+    def __init__(self, bot, cards, board_id):
+        self.bot = bot
         self.cards = cards
         self.board_id = board_id
 
@@ -549,7 +551,12 @@ class CardDropdownForComplete(discord.ui.Select):
             else:
                 fail += 1
 
-        progress_msg = await generate_sprint_progress(board_id)
+        # Sprint Cog 인스턴스 가져오기
+        sprint_cog = self.bot.get_cog("Sprint")
+        if not sprint_cog:
+            return await interaction.followup.send("❌ Sprint 정보를 불러올 수 없습니다.", ephemeral=True)
+
+        progress_msg = await sprint_cog.generate_sprint_progress(self.board_id)
 
         await interaction.followup.send(
             f"✅ 완료 처리된 카드: {success}개\n"

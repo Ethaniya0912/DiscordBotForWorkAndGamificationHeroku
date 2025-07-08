@@ -11,6 +11,7 @@ from discord.ext import commands, tasks
 from Monster import Monster
 from datetime import datetime, timedelta
 from trello.trello_lookup import TrelloLookup
+from data.database import init_db_pool
 from server import app, keep_alive
 
 #.env 파일에서 환경변수 로드
@@ -45,7 +46,7 @@ from commands import users_commands, card_commands, sprint_commands
 #bot.add_command(unassign_card)
 card_commands.setup(bot)
 users_commands.setup(bot)
-sprint_commands.setup(bot)
+# sprint_commands.setup(bot)
 
 @bot.command()
 async def 테스트(ctx):
@@ -168,9 +169,11 @@ async def help_command(ctx):
     await ctx.send(help_text)
 
 async def main():
+    await init_db_pool()  # 풀 초기화
     # 디스코드 cog 로드
     await bot.load_extension("Alarm.discord_alarm")
     await bot.load_extension("Alarm.trello_alarm")
+    await bot.load_extension("commands.sprint_commands")
     await bot.load_extension("commands.card_move_view")
     await bot.load_extension("commands.card_menu")
     await bot.start(DISCORD_BOT_TOKEN)

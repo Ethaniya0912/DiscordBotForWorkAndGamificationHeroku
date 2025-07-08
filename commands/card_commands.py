@@ -5,7 +5,7 @@ from discord.ext import commands
 import requests
 from trello.trello_auth import get_trello_id_for_user
 from trello.trello_lookup import TrelloLookup
-from commands.sprint_commands import generate_sprint_progress
+from commands.sprint_commands import Sprint
 from commands.card_move_view import ListSelectViewForCardCreate, ListSelectViewForAssign, ListSelectViewForComplete
 from data.user_mapping import get_trello_info
 from dotenv import load_dotenv # .env 환경변수 불러오기
@@ -126,7 +126,7 @@ def setup(bot):
         # 카드 이동 + 라벨추가 + 진행률 출력
         move_res = TrelloLookup.move_card_to_list(card_id, done_list_id)
         if move_res.status_code == 200:
-            progress_msg = await generate_sprint_progress(source_board_id)
+            progress_msg = await Sprint.generate_sprint_progress(source_board_id)
             await ctx.send(f"✅ 카드 '{card_name}'가 완료로 표시되었고, DONE리스트로 이동했습니다.\n\n{progress_msg}")
         else:
             await ctx.send(f"⚠️카드 완료는 되었지만 이동 실패 : {move_res.text}")

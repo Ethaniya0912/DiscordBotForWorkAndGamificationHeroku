@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from discord.ext import tasks, commands
 from dotenv import load_dotenv
 from trello.trello_lookup import TrelloLookup
-from data.sprint_storage import get_all_sprints
+from data.sprint_storage import SprintMetaManager
+from data.database import get_db_pool
 import pytz
 import discord
 
@@ -21,6 +22,7 @@ CHANNEL_ID = int(os.getenv("DISCORD_CHANNEL_ID"))
 class TrelloAlarm(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.meta_manager = SprintMetaManager(get_db_pool())
         self.daily_sprint_check.start()
 
     @tasks.loop(time=datetime.strptime("22:00", "%H:%M").time())
@@ -28,7 +30,7 @@ class TrelloAlarm(commands.Cog):
         now = datetime.now()
         sprint_lists = TrelloLookup.get_lists_with_due(BOARD_ID)
 
-        all_sprints = get_all_sprints()
+        all_sprints = await self.meta_manager.get_all_sprints()
         # report = []
 
         if not all_sprints:

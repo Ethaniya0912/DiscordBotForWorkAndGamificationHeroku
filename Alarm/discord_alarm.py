@@ -41,15 +41,33 @@ class Discord_alarm(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.pool = None
+        # 알람 시간별 { "HH:MM" : [user_id, ...]}
+        self.alert_schedule = {}
+
 
     @commands.Cog.listener()
     async def on_ready(self):
         print(f'Bot ready as {self.bot.user}.', flush=True)
         await self.bot.wait_until_ready()
-        await init_db_pool() # 풀 초기화
         self.pool = get_db_pool()
         print("DB pool reset complete", flush=True)
+        await self.load_alert_schedule_from_db() #db 에 있는 쿼리 불러오기.
         self.check_and_send_user_alerts.start()
+
+    # 봇 시작하면 db에 있는 쿼리 불러와서 메모리에 입력.
+    async def load_alert_schedule_from_db(self):
+        """
+          서버 시작시 db에서 알람 스케줄을 캐시에 로드합니다.
+        """
+
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("SELECT user_id, alert_time FROM user_alerts")
+        schedule = {}
+        for row in rows:
+            time_str = row["alert_time"].strftime("%H:%M") #time객체 문자열
+            schedule.setdefault(time_str, []).append(row["user_id"])
+        self.alert_schedule = schedule
+        print("알람 스케줄 로드 완료:", self.alert_schedule)
 
     # 알림 추가 명령어
     @commands.command(aliases=["알람추가"])
@@ -103,6 +121,10 @@ class Discord_alarm(commands.Cog):
                     parsed_time
                 )
                 print("DB INSERT 완료")
+
+            # 캐시에 반영
+            time_str = parsed_time.strftime("%H:%M")
+            self.alert_schedule.setdefault(time_str, []).append(user_id)
 
             # [:5]는 5문자열만 가져온다는 것. 뒤에 시:분 이외 초는 필요없음으로.
             await ctx.send(f"{ctx.author.mention} 알림 시간 '{formatted_time[:5]}' 이 등록되었습니다.")
@@ -170,18 +192,25 @@ class Discord_alarm(commands.Cog):
         if result == "DELETE 0":
             await ctx.send(f"{ctx.author.mention} 해당 시간은 등록되어있지 않습니다.")
         else:
+            # 캐시에 반영
+            time_str = parsed_time.strftime("%H:%M")
+            if time_str in self.alert_schedule:
+                self.alert_schedule[time_str] = [
+                    uid for uid in self.alert_schedule[time_str] if uid != user_id
+                ]
+                if not self.alert_schedule[time_str]:
+                    del self.alert_schedule[time_str]
             await ctx.send(f"{ctx.author.mention} 알림 시간 '{time}'이 제거되었습니다.")
 
 
     # 알림 루프 : 매 분마다 검사
     @tasks.loop(minutes=1)
     async def check_and_send_user_alerts(self):
-
         # KST 현재시간 구하기
         # now = datetime.now().strftime("%H:%M")
         now_utc = datetime.utcnow()
         now_kst = now_utc+timedelta(hours=9)
-        now = now_kst.strftime("%H:%M:%S")
+        now = now_kst.strftime("%H:%M")
         channel = self.bot.get_channel(CHANNEL_ID)
 
         if not channel:
@@ -195,13 +224,23 @@ class Discord_alarm(commands.Cog):
         #         if user:
         #             await channel.send(f"⏰{user.mention}, 지금은 '{now}'입니다! 설정한 업무시간입니다. ")
 
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT DISTINCT user_id FROM user_alerts WHERE alert_time=$1",
-                now
-            )
-        for r in rows:
-            user = await self.bot.fetch_user(r["user_id"])
+        ## 메모리캐시화로 인한 주석처리.
+        # async with self.pool.acquire() as conn:
+        #     rows = await conn.fetch(
+        #         "SELECT DISTINCT user_id FROM user_alerts WHERE alert_time=$1",
+        #         now
+        #     )
+        # for r in rows:
+        #     user = await self.bot.fetch_user(r["user_id"])
+        #     if user:
+        #         await channel.send(f"⏰{user.mention}, 지금은 '{now[:5]}'입니다! 설정한 업무시간입니다.")
+
+        user_ids = self.alert_schedule.get(now, []) #문자열화된 시간 메모리에서 가져오기.
+        if not user_ids:
+            return
+
+        for user_id in user_ids:
+            user = await self.bot.fetch_user(user_id)
             if user:
                 await channel.send(f"⏰{user.mention}, 지금은 '{now[:5]}'입니다! 설정한 업무시간입니다.")
 
